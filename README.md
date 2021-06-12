@@ -17,7 +17,8 @@ extractor.Extract();
 ```
 
 ### Remarks
-This library logs additional data when built in debug mode.
+- This library logs additional data when built in debug mode.
+- Due to the poor/inexistent APIs in C# to handle symlinks, every symlink will be replaced with the file or directory it points to.
 
 ## Contact
 If you want to contact the original developer of this library, here's their Discord server: https://discord.gg/Bd2JnFB

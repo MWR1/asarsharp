@@ -163,8 +163,8 @@ namespace AsarSharp
             // TODO: think about how to not... have to... do this check, lol.
             if (isFirstDirectory)
             {
-                foreach (string fileOrDirectoryPathPath in Directory.EnumerateFileSystemEntries(currentFilePath, searchPattern: "*.*", SearchOption.TopDirectoryOnly))
-                    MakeJsonDirStructureAndWriteToTempFile(fileOrDirectoryPathPath, ref currentBranch);
+                foreach (string fileOrDirectoryPath in Directory.EnumerateFileSystemEntries(currentFilePath, searchPattern: "*.*", SearchOption.TopDirectoryOnly))
+                    MakeJsonDirStructureAndWriteToTempFile(fileOrDirectoryPath, ref currentBranch);
                 return;
             }
 
@@ -228,6 +228,7 @@ namespace AsarSharp
 
 
         private bool _isDisposed = false;
+
         /**
          * <summary>Disposes the resources associated with this archiver.</summary>
          */
@@ -253,7 +254,7 @@ namespace AsarSharp
                     }
                     catch (Exception error)
                     {
-                        Console.WriteLine($"The following error occured whilst trying to delete the temp file: {error}");
+                        DebugLog($"The following error occured whilst trying to delete the temp file: {error}");
                     }
 
                     _tempArchiveFileStream = null;
