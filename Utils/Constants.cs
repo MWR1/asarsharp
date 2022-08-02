@@ -3,13 +3,15 @@ namespace AsarSharp.Utils
 {
     class Constants
     {
+        public const ushort HeaderSizePickleObjectSize = 8;
         public enum ArchivingStep
         {
-            TemporaryFileCreation = 0,
-            DirectoryStructureCreation = 1,
-            ArchiveCreation = 2,
-            ArchiveHeaderWrite = 3,
-            ArchiveContentsWrite = 4,
+            UnpackedDirectoryCreation = 0,
+            TemporaryFileCreation = 1,
+            DirectoryStructureCreation = 2,
+            ArchiveCreation = 3,
+            ArchiveHeaderWrite = 4,
+            ArchiveContentsWrite = 5,
         }
 
         public enum ExtractionStep
@@ -23,6 +25,7 @@ namespace AsarSharp.Utils
         }
 
         private static readonly string[] _archivingSteps = {
+            "Creating the {archiveName.asar.unpacked} directory...",
             "Creating temporary file for holding the archive data...",
             "Creating the directory structure and writing the file contents to the temporary file (may take a while)...",
             "Creating archive...",
@@ -51,6 +54,7 @@ namespace AsarSharp.Utils
             public const string archiveDirectoryMissing = "The given directory path from which to create the archive doesn't exist.";
             public const string archiveFileMissing = "The archive file from which to extract the files doesn't exist.";
             public const string symlinkMissing = "There's a symbolic link in this archive that points to a file or directory that doesn't exist.";
+            public const string unpackedDirectoryMissing = "This archive has been generated with a few external files that haven't been packed for performance, security or other issues' sake. These files live in a directory right outside the archive, which follows the {archiveName.asar.unpacked} name scheme, and this directory doesn't exist.";
         }
     }
 }

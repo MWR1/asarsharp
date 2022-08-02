@@ -3,10 +3,11 @@ using System.Collections.Generic;
 using System.IO;
 
 using Newtonsoft.Json;
+using DotNet.Globbing;
 
+using static AsarSharp.Utils.Types;
 using static AsarSharp.Utils.Constants;
 using static AsarSharp.Utils.Methods;
-
 
 namespace AsarSharp
 {
@@ -37,6 +38,11 @@ namespace AsarSharp
         private Dictionary<string, dynamic> _jsonDirectoryStructure =
             new() { ["files"] = new Dictionary<string, dynamic>() };
 
+        // Path of {archiveName.asar.unpacked}.
+        private string _unpackedDirectoryPath = null;
+        // List of globs for including files in the {archiveName.asar.unpacked} directory.
+        private readonly List<Glob> _unpackedGlobs = new(capacity: 2);
+
         /**
          * <param name="directoryPath">Path of the directory that is to be archived.</param>
          * <param name="archivePath">Path to where the archive will be created.</param>
@@ -61,16 +67,21 @@ namespace AsarSharp
          * <summary>
          * Packs the given directory from the constructor into an .asar file. 
          * </summary>
+         * <param name="archivingOptions">
+         * A list of options that describe some rules for the archiving process.
+         * </param>
          */
-        public void Archive()
+        public void Archive(ArchivingOptions archivingOptions = null)
         {
+            if (archivingOptions != null) HandleArchivingOptions(ref archivingOptions);
+
             DebugLog(GetStep(ArchivingStep.TemporaryFileCreation));
             _tempArchiveFileStream = CreateArchiveDataTempFile();
             DebugLog($"Temporary file created with name {Path.GetFileName(_tempArchiveFileStream.Name)}");
 
             DebugLog(GetStep(ArchivingStep.DirectoryStructureCreation));
             // startBranch represents the empty dictionary that will hold the files/directories 
-            // directly inside the main directory.
+            // directly inside the main directory. Basically, the initial "files": {}
             Dictionary<string, dynamic> startBranch = _jsonDirectoryStructure.GetValueOrDefault("files");
             MakeJsonDirStructureAndWriteToTempFile(_directoryPath, ref startBranch, isFirstDirectory: true);
 
@@ -84,6 +95,22 @@ namespace AsarSharp
             WriteArchiveContents();
 
             DebugLog($"Archive created at {_newArchiveFileStream.Name}");
+        }
+
+        private void HandleArchivingOptions(ref ArchivingOptions archivingOptions)
+        {
+            if (archivingOptions.Unpack != null)
+            {
+                foreach (string unpackedGlob in archivingOptions.Unpack)
+                    _unpackedGlobs.Add(Glob.Parse($"{(archivingOptions.MatchBasename ? "**/" : "")}{unpackedGlob}"));
+
+                _unpackedDirectoryPath = _archivePath + ".unpacked";
+
+                DebugLog(GetStep(ArchivingStep.UnpackedDirectoryCreation));
+                Directory.CreateDirectory(_unpackedDirectoryPath);
+            }
+
+            // TODO: implement --unpack-dir
         }
 
         /**
@@ -101,6 +128,58 @@ namespace AsarSharp
             tempFileInfo.Attributes = FileAttributes.Temporary;
 
             return tempFileInfo.Open(FileMode.Open);
+        }
+
+        /**
+        * <summary>
+        * Recursively creates, in memory, the structure of the files and directories from the main 
+        * directory. The structure created follows the same format as the one from asar's docs.
+        * </summary>
+        * <param name="currentFilePath">The path of the file that is to be added to the archive.</param>
+        * <param name="currentBranch">
+        * The branch of the directory structure that needs to be populated. It can represent the "files"
+        * property, or the file names with their size and offset. 
+        * </param>
+        * <param name="isFirstDirectory">
+        * Is used to treat the edge case of the main directory. The format of the JSON simply starts with
+        * the files property, at the root, and doesn't include the name of the main directory. This 
+        * parameter, for now, may not be set to anything, when calling the method. Otherwise, the outputted
+        * structure will not be correct.
+        * </param>
+        */
+        private void MakeJsonDirStructureAndWriteToTempFile(
+          string currentFilePath,
+          ref Dictionary<string, dynamic> currentBranch,
+          bool isFirstDirectory = false
+        )
+        {
+            // TODO: think about how to not... have to... do this check, lol.
+            if (isFirstDirectory)
+            {
+                foreach (string fileOrDirectoryPath in Directory.EnumerateFileSystemEntries(currentFilePath, searchPattern: "*.*", SearchOption.TopDirectoryOnly))
+                    MakeJsonDirStructureAndWriteToTempFile(fileOrDirectoryPath, ref currentBranch);
+                return;
+            }
+
+            if (Directory.Exists(currentFilePath))
+            {
+                // Creates a new branch in the directory structure, that corresponds to the format of a 
+                // directory, like: "directory name": { "files": {} }
+                string directoryName = Path.GetFileName(currentFilePath);
+                Dictionary<string, dynamic> filesDataInNewFilesBranch = new();
+                Dictionary<string, dynamic> newFilesBranch = new() { ["files"] = filesDataInNewFilesBranch };
+
+                currentBranch.Add(directoryName, newFilesBranch);
+
+                foreach (string fileOrDirectoryPath in Directory.EnumerateFileSystemEntries(currentFilePath, searchPattern: "*.*", SearchOption.TopDirectoryOnly))
+                    MakeJsonDirStructureAndWriteToTempFile(fileOrDirectoryPath, ref filesDataInNewFilesBranch);
+
+                return;
+            }
+
+
+            WriteFileBytesToTempFile(ref currentFilePath);
+            AddNewFileToBranch(ref currentBranch, currentFilePath);
         }
 
         /**
@@ -137,58 +216,6 @@ namespace AsarSharp
             _tempArchiveFileStream.CopyTo(_newArchiveFileStream);
         }
 
-        /**
-         * <summary>
-         * Recursively creates, in memory, the structure of the files and directories from the main 
-         * directory. The structure created follows the same format as the one from asar's docs.
-         * </summary>
-         * <param name="currentFilePath">The path of the file that is to be added to the archive.</param>
-         * <param name="currentBranch">
-         * The branch of the directory structure that needs to be populated. It can represent the "files"
-         * property, or the file names with their size and offset. 
-         * </param>
-         * <param name="isFirstDirectory">
-         * Is used to treat the edge case of the main directory. The format of the JSON simply starts with
-         * the files property, at the root, and doesn't include the name of the main directory. This 
-         * parameter, for now, may not be set to anything, when calling the method. Otherwise, the outputted
-         * structure will not be correct.
-         * </param>
-         */ 
-        private void MakeJsonDirStructureAndWriteToTempFile(
-          string currentFilePath,
-          ref Dictionary<string, dynamic> currentBranch,
-          bool isFirstDirectory = false
-        )
-        {
-            // TODO: think about how to not... have to... do this check, lol.
-            if (isFirstDirectory)
-            {
-                foreach (string fileOrDirectoryPath in Directory.EnumerateFileSystemEntries(currentFilePath, searchPattern: "*.*", SearchOption.TopDirectoryOnly))
-                    MakeJsonDirStructureAndWriteToTempFile(fileOrDirectoryPath, ref currentBranch);
-                return;
-            }
-
-            if (Directory.Exists(currentFilePath))
-            {
-                // Creates a new branch in the directory structure, that corresponds to the format of a 
-                // directory, like: "directory name": { "files": {} }
-                string directoryName = Path.GetFileName(currentFilePath);
-                Dictionary<string, dynamic> filesDataInNewFilesBranch = new();
-                Dictionary<string, dynamic> newFilesBranch = new() { ["files"] = filesDataInNewFilesBranch };
-
-                currentBranch.Add(directoryName, newFilesBranch);
-
-                foreach (string fileOrDirectoryPath in Directory.EnumerateFileSystemEntries(currentFilePath, searchPattern: "*.*", SearchOption.TopDirectoryOnly))
-                    MakeJsonDirStructureAndWriteToTempFile(fileOrDirectoryPath, ref filesDataInNewFilesBranch);
-
-                return;
-            }
-
-
-            WriteFileBytesToTempFile(ref currentFilePath);
-            AddNewFileToBranch(ref currentBranch, ref currentFilePath);
-        }
-
         private void WriteFileBytesToTempFile(ref string filePath)
         {
             _tempArchiveFileStream.Seek(offset: (long)_fileOffset, SeekOrigin.Begin);
@@ -202,18 +229,47 @@ namespace AsarSharp
          */
         private void AddNewFileToBranch(
             ref Dictionary<string, dynamic> currentBranch,
-            ref string currentFilePath
+            string currentFilePath
         )
         {
             string currentFileName = Path.GetFileName(currentFilePath);
             var (currentFileSize, currentFileOffset) = GetFileSizeAndOffset(currentFilePath);
+            Dictionary<string, dynamic> currentFileData = new() { ["size"] = currentFileSize };
 
-            Dictionary<string, dynamic> currentFileData = new() { ["offset"] = currentFileOffset, ["size"] = currentFileSize };
+            if (!_unpackedGlobs.Exists((glob) => glob.IsMatch(currentFilePath)))
+            {
+                currentFileData.Add("offset", currentFileOffset);
+                _fileOffset += (ulong)currentFileSize;
+            }
+            else
+            {
+                currentFileData.Add("unpacked", true);
+                AddFileToUnpackedDirectory(currentFilePath);
+            }
             if (IsFileExecutable(currentFilePath)) currentFileData.Add("executable", true);
 
             currentBranch.Add(currentFileName, currentFileData);
+        }
 
-            _fileOffset += (ulong)currentFileSize;
+        /**
+         * <summary>
+         * Adds the files excluded by the globs from the archiving options to the {archiveName.asar.unpacked} directory.
+         * </summary>
+         */
+        private void AddFileToUnpackedDirectory(string filePath)
+        {
+            /*
+             _unpackedDirectoryPath = path/to/{archiveName.asar.unpacked}
+             _directoryPath = path/to/directoryToArchive
+             filePath = {_directoryPath}/path/to/file
+            
+             filePathInUnpackedDirectory = _unpackedDirectoryPath + (filePath - _directoryPath)
+            */
+            string filePathInUnpackedDirectory = Path.Join(_unpackedDirectoryPath, filePath.Substring(_directoryPath.Length + 1));
+            string fileParentPathInUnpackedDirectory = Directory.GetParent(filePathInUnpackedDirectory).FullName;
+
+            Directory.CreateDirectory(fileParentPathInUnpackedDirectory);
+            File.Copy(filePath, filePathInUnpackedDirectory, overwrite: true);
         }
 
         private (long, string) GetFileSizeAndOffset(string filePath)
@@ -226,12 +282,10 @@ namespace AsarSharp
             return (fileSize, currentFileOffset);
         }
 
-
-        private bool _isDisposed = false;
-
         /**
          * <summary>Disposes the resources associated with this archiver.</summary>
          */
+        private bool _isDisposed = false;
         public void Dispose()
         {
             Dispose(isCalledFromDispose: true);
@@ -264,6 +318,7 @@ namespace AsarSharp
                 _newArchiveFileStream = null;
             }
 
+            _unpackedGlobs.Clear();
             _jsonDirectoryStructure = null;
             _isDisposed = true;
         }
