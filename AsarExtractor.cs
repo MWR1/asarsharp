@@ -239,10 +239,10 @@ namespace AsarSharp
             return (headerJsonString, headerJsonStringSize);
         }
 
+        private bool _isDisposed = false;
         /**
          * <summary>Disposes the resources associated with this extractor.</summary>
          */
-        private bool _isDisposed = false;
         public void Dispose()
         {
             Dispose(isCalledFromDispose: true);

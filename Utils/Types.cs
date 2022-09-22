@@ -1,7 +1,13 @@
 ﻿namespace AsarSharp.Utils
 {
+    /**
+     * Various types used within the library.
+     */
     public static class Types
     {
+        /**
+         * Options to be passed to the archive method.
+         */
         public class ArchivingOptions
         {
             /**

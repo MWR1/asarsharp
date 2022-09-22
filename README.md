@@ -7,7 +7,7 @@ This library exposes 2 disposable classes: `AsarArchiver` and `AsarExtractor`.
 #### 📚 Archiving a directory/file 
 ```
 using AsarArchiver archiver = new(pathToDirectoryOrFile, pathToArchive);
-archiver.Archive();
+archiver.Archive(options);
 ```
 
 #### 💥 Extracting an archive 
@@ -21,21 +21,13 @@ extractor.Extract();
 
 
 ##### `ArchivingOptions` in namespace `AsarSharp.Utils.Types`
-</table>
-<table>
-<th>Option</th>
-<th>Type</th>
-<th>What it does</th>
-<tr>
-<td><code>MatchBasename</code></td>
-<td>bool</td>
-<td>Match against the filename of the path. So basically, for <code>path/to/file.txt</code>, <code>*.txt</code> will match.</td>
-<tr>
-<td><code>Unpack</code></td>
-<td>string[]</td>
-<td>List of globs to match against every file archived. It represents the argument received from the <code>--unpack</code> flag from asar.</td>
-</tr>
-</table>
+| Option          | Type       | Default value | What it does                                                                                                                                                          |
+|-----------------|------------|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `MatchBasename` | `bool`     | `false`       | 	Match against the filename of the path. So basically, if this is set to `true`, for `path/to/file.txt`, `*.txt` will match. This may only be used with the `Unpack` option. |
+| `Unpack`        | `string[]` | `null`        | List of globs to match against every file archived. It is like the argument received from the `--unpack` flag from the asar CLI.                                   |
+
+
+
 
 ### Remarks
 - This library logs additional data when built in debug mode.

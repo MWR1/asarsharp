@@ -1,4 +1,8 @@
-﻿# 02 Aug 2022
+﻿# 22 Sep 2022 
+- modified some comments for Visual Studio to generate XML docs properly
+- added a (late... sorry) very important clarification to the options the archiver may receive.
+
+# 02 Aug 2022
 - fixed empty files gaining 1 KB after extraction
 - added clarity to "Where did that 8 come from?"
 - added a better reason for the lack of support for symlinks

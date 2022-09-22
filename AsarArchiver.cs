@@ -282,10 +282,10 @@ namespace AsarSharp
             return (fileSize, currentFileOffset);
         }
 
+        private bool _isDisposed = false;
         /**
          * <summary>Disposes the resources associated with this archiver.</summary>
          */
-        private bool _isDisposed = false;
         public void Dispose()
         {
             Dispose(isCalledFromDispose: true);
