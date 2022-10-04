@@ -160,7 +160,7 @@ namespace AsarSharp
             {
                 if (_unpackedDirectoryPath == null)
                 {
-                    string unpackedDirectoryPath = Path.Join(Directory.GetParent(_pathToExtractDirectory).FullName, Path.GetFileName(_archiveFilePath) + ".unpacked");
+                    string unpackedDirectoryPath = Path.Join(Path.GetDirectoryName(_archiveFilePath), Path.GetFileName(_archiveFilePath) + ".unpacked");
                     if (!Directory.Exists(unpackedDirectoryPath))
                         throw new DirectoryNotFoundException(AsarExceptions.unpackedDirectoryMissing);
                     else
